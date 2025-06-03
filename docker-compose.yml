@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  backend:
+    build: ./backend
+    volumes:
+      - ./database:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/trashway.db
+    ports:
+      - "8000:8000"
+  dashboard:
+    build: ./dashboard
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:8000
+    ports:
+      - "8501:8501"
