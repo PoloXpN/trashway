@@ -1,3 +1,4 @@
+# filepath: /home/paulj/esilv/python/projects/trashway/dashboard/app/pages/01_simulation.py
 import streamlit as st
 import requests
 import random
@@ -203,7 +204,7 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                         trucks[truck_id] = []
                     trucks[truck_id].append(route)
                 
-                # Add routes to map with real street routing
+                # Add routes to map
                 for truck_id, truck_routes in trucks.items():
                     color = colors[truck_id % len(colors)]
                     
@@ -222,70 +223,16 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                             icon=folium.Icon(color=color, icon=icon, icon_color=icon_color)
                         ).add_to(m)
                     
-                    # Add real street routes using OSRM
+                    # Add route lines
                     if len(truck_routes) > 1:
-                        try:
-                            # Prepare coordinates for OSRM API
-                            coordinates = ";".join([
-                                f"{route['longitude']},{route['latitude']}" 
-                                for route in truck_routes
-                            ])
-                            
-                            # Call OSRM API for real route geometry
-                            osrm_url = f"http://router.project-osrm.org/route/v1/driving/{coordinates}?overview=full&geometries=geojson"
-                            osrm_response = requests.get(osrm_url)
-                            
-                            if osrm_response.status_code == 200:
-                                osrm_data = osrm_response.json()
-                                if osrm_data.get("routes"):
-                                    route_geom = osrm_data["routes"][0]["geometry"]["coordinates"]
-                                    route_distance = osrm_data["routes"][0]["distance"]
-                                    route_duration = osrm_data["routes"][0]["duration"]
-                                    
-                                    # Convert coordinates for Folium (swap lon/lat)
-                                    route_coords_folium = [[point[1], point[0]] for point in route_geom]
-                                    
-                                    # Add real route polyline
-                                    popup_text = f"Camion {truck_id+1}<br/>Distance: {route_distance/1000:.2f} km<br/>Durée: {route_duration/60:.1f} min"
-                                    folium.PolyLine(
-                                        locations=route_coords_folium,
-                                        color=color,
-                                        weight=4,
-                                        opacity=0.8,
-                                        popup=folium.Popup(popup_text, max_width=250)
-                                    ).add_to(m)
-                                else:
-                                    # Fallback to straight lines if OSRM fails
-                                    route_coords = [[route['latitude'], route['longitude']] for route in truck_routes]
-                                    folium.PolyLine(
-                                        route_coords,
-                                        color=color,
-                                        weight=3,
-                                        opacity=0.6,
-                                        popup=f"Route Camion {truck_id+1} (ligne droite)"
-                                    ).add_to(m)
-                            else:
-                                # Fallback to straight lines if API call fails
-                                route_coords = [[route['latitude'], route['longitude']] for route in truck_routes]
-                                folium.PolyLine(
-                                    route_coords,
-                                    color=color,
-                                    weight=3,
-                                    opacity=0.6,
-                                    popup=f"Route Camion {truck_id+1} (ligne droite)"
-                                ).add_to(m)
-                                
-                        except Exception as e:
-                            # Fallback to straight lines if any error occurs
-                            st.warning(f"Impossible de charger la route réelle pour le camion {truck_id+1}, affichage en ligne droite")
-                            route_coords = [[route['latitude'], route['longitude']] for route in truck_routes]
-                            folium.PolyLine(
-                                route_coords,
-                                color=color,
-                                weight=3,
-                                opacity=0.6,
-                                popup=f"Route Camion {truck_id+1} (ligne droite)"
-                            ).add_to(m)
+                        route_coords = [[route['latitude'], route['longitude']] for route in truck_routes]
+                        folium.PolyLine(
+                            route_coords,
+                            color=color,
+                            weight=3,
+                            opacity=0.8,
+                            popup=f"Route Camion {truck_id+1}"
+                        ).add_to(m)
                 
                 # Display map
                 map_data = st_folium(m, width=700, height=500)
