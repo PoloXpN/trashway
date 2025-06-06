@@ -197,14 +197,22 @@ except Exception as e:
 if hasattr(st.session_state, 'current_simulation') and st.session_state.current_simulation:
     st.header("🗺️ Visualisation des routes")
     
-    try:
-        # Get routes for selected simulation
-        routes_resp = requests.get(f"{backend_url}/simulations/{st.session_state.current_simulation}/routes")
-        
+    # Use cache to avoid reloading routes unnecessarily
+    @st.cache_data(ttl=300)  # Cache for 5 minutes
+    def get_simulation_routes(simulation_id):
+        routes_resp = requests.get(f"{backend_url}/simulations/{simulation_id}/routes")
         if routes_resp.status_code == 200:
-            routes = routes_resp.json()
-            
-            if routes:
+            return routes_resp.json()
+        return None
+    
+    try:
+        # Get routes for selected simulation (cached)
+        routes = get_simulation_routes(st.session_state.current_simulation)
+        
+        if routes:
+            # Cache the map creation to avoid regenerating it on every interaction
+            @st.cache_data(ttl=300)
+            def create_routes_map(simulation_id, routes_data):
                 # Create folium map centered on Paris
                 m = folium.Map(location=PARIS_CENTER, zoom_start=12)
                 
@@ -213,7 +221,7 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                 
                 # Group routes by truck
                 trucks = {}
-                for route in routes:
+                for route in routes_data:
                     truck_id = route['truck_id']
                     if truck_id not in trucks:
                         trucks[truck_id] = []
@@ -293,7 +301,6 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                                 
                         except Exception as e:
                             # Fallback to straight lines if any error occurs
-                            st.warning(f"Impossible de charger la route réelle pour le camion {truck_id+1}, affichage en ligne droite")
                             route_coords = [[route['latitude'], route['longitude']] for route in truck_routes]
                             folium.PolyLine(
                                 route_coords,
@@ -303,45 +310,60 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                                 popup=f"Route Camion {truck_id+1} (ligne droite)"
                             ).add_to(m)
                 
-                # Display map
-                map_data = st_folium(m, width=700, height=500)
-                
-                # Display route details
-                st.subheader("📋 Détails des routes")
-                
-                for truck_id, truck_routes in trucks.items():
-                    with st.expander(f"🚛 Camion {truck_id+1} ({len(truck_routes)} arrêts)"):
-                        truck_routes.sort(key=lambda x: x['bin_order'])
-                        
-                        total_weight = sum(route['weight'] for route in truck_routes)
-                        total_distance = sum(route.get('distance_to_next', 0) for route in truck_routes if route.get('distance_to_next'))
-                        total_time = sum(route.get('time_to_next', 0) for route in truck_routes if route.get('time_to_next'))
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("Poids total", f"{total_weight:.1f} kg")
-                        with col2:
-                            st.metric("Distance", format_distance(total_distance))
-                        with col3:
-                            st.metric("Temps estimé", format_duration(total_time))
-                        
-                        # Route table
-                        route_data = []
-                        for route in truck_routes:
-                            route_data.append({
-                                'Ordre': route['bin_order'] + 1,
-                                'Coordonnées': f"{route['latitude']:.4f}, {route['longitude']:.4f}",
-                                'Poids': f"{route['weight']:.1f} kg",
-                                'Distance suivante': f"{route.get('distance_to_next', 0)/1000:.2f} km" if route.get('distance_to_next') else "Fin",
-                                'Temps suivant': f"{route.get('time_to_next', 0)/60:.1f} min" if route.get('time_to_next') else "Fin"
-                            })
-                        
-                        st.dataframe(pd.DataFrame(route_data), use_container_width=True)
-            else:
-                st.info("Aucune route trouvée pour cette simulation")
-        else:
-            st.error("Erreur lors du chargement des routes")
+                return m
             
+            # Create the map using cached function
+            map_obj = create_routes_map(st.session_state.current_simulation, routes)
+            
+            # Display map with key parameter for stability
+            map_data = st_folium(
+                map_obj, 
+                width=700, 
+                height=500,
+                key=f"simulation_map_{st.session_state.current_simulation}"
+            )
+                
+            # Display route details
+            st.subheader("📋 Détails des routes")
+            
+            # Group routes by truck for details display
+            trucks = {}
+            for route in routes:
+                truck_id = route['truck_id']
+                if truck_id not in trucks:
+                    trucks[truck_id] = []
+                trucks[truck_id].append(route)
+            
+            for truck_id, truck_routes in trucks.items():
+                with st.expander(f"🚛 Camion {truck_id+1} ({len(truck_routes)} arrêts)"):
+                    truck_routes.sort(key=lambda x: x['bin_order'])
+                    
+                    total_weight = sum(route['weight'] for route in truck_routes)
+                    total_distance = sum(route.get('distance_to_next', 0) for route in truck_routes if route.get('distance_to_next'))
+                    total_time = sum(route.get('time_to_next', 0) for route in truck_routes if route.get('time_to_next'))
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("Poids total", f"{total_weight:.1f} kg")
+                    with col2:
+                        st.metric("Distance", format_distance(total_distance))
+                    with col3:
+                        st.metric("Temps estimé", format_duration(total_time))
+                    
+                    # Route table
+                    route_data = []
+                    for route in truck_routes:
+                        route_data.append({
+                            'Ordre': route['bin_order'] + 1,
+                            'Coordonnées': f"{route['latitude']:.4f}, {route['longitude']:.4f}",
+                            'Poids': f"{route['weight']:.1f} kg",
+                            'Distance suivante': f"{route.get('distance_to_next', 0)/1000:.2f} km" if route.get('distance_to_next') else "Fin",
+                            'Temps suivant': f"{route.get('time_to_next', 0)/60:.1f} min" if route.get('time_to_next') else "Fin"
+                        })
+                    
+                    st.dataframe(pd.DataFrame(route_data), use_container_width=True)
+        else:
+            st.info("Aucune route trouvée pour cette simulation")
     except Exception as e:
         st.error(f"Erreur lors de la visualisation: {e}")
 else:

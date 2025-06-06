@@ -1,6 +1,64 @@
 # Trashway
 
-Trashway est une plateforme de gestion intelligente des points de collecte de déchets. Elle propose :
+Trash## Installatio   ```
+4. Accédez :
+   - à l'API : [http://localhost:8000/docs](http://## Base de données et migration (Legacy)
+- Le schéma de la base SQLite est défini dans `database/schema.sql`.
+- Cette section est conservée pour compatibilité, utilisez les nouveaux scripts ci-dessus.ost:8000/docs)
+   - au dashboard : [http://localhost:8501](http://localhost:8501)
+
+## 🗄️ Gestion de la base de données
+
+### Réinitialisation complète
+Pour repartir avec une base de données propre :
+```bash
+# Méthode rapide (script shell)
+./reset_db.sh
+
+# Méthode avancée (script Python avec options)
+python3 reset_database.py --force --with-docker
+```
+
+### Migrations
+Pour appliquer des migrations (ajout de colonnes) :
+```bash
+python3 migrate_db.py
+```
+
+### Structure de la base
+- `bins` : Informations des poubelles (localisation, poids, etc.)
+- `simulations` : Simulations de collecte effectuées
+- `routes` : Routes optimisées pour chaque simulation
+- `distances` : Matrice des distances entre poubelles
+
+## 🧪 Tests et développement
+
+### Tests des API
+```bash
+# Test complet des endpoints
+python3 test_api.py
+
+# Test des simulations
+python3 test_simulation.py
+```
+
+### Nettoyage du projet
+Les fichiers suivants sont exclus du versioning :
+- `database/trashway.db` (base de données locale)
+- `__pycache__/` (cache Python)
+- `.env` files (variables d'environnement)
+- `logs/` (fichiers de log)
+
+## Installation et lancement en local (optionnel)ancement avec Docker
+
+### 🚀 Démarrage rapide
+1. Clonez le dépôt et placez-vous dans le dossier du projet.
+2. Initialisez la base de données :
+   ```bash
+   ./reset_db.sh
+   ```
+3. Lancez les services avec :
+   ```bashest une plateforme de gestion intelligente des points de collecte de déchets. Elle propose :
 - Un backend API (FastAPI) pour la gestion et la collecte des données des bacs à déchets.
 - Un dashboard interactif (Streamlit) pour visualiser la simulation et l’historique des collectes.
 - Un carte interactive affichant les parcours de collecte.
