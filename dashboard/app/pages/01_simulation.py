@@ -4,6 +4,7 @@ import random
 import folium
 from streamlit_folium import st_folium
 import pandas as pd
+from utils import OSRM_API_URL, PARIS_CENTER, COLORS, format_distance, format_duration
 
 st.title("🚛 Simulation de collecte optimisée")
 
@@ -123,9 +124,9 @@ if st.button("▶️ Démarrer la simulation", type="primary"):
                     
                     col1, col2, col3 = st.columns(3)
                     with col1:
-                        st.metric("Distance totale", f"{simulation_result.get('total_distance', 0)/1000:.2f} km")
+                        st.metric("Distance totale", format_distance(simulation_result.get('total_distance', 0)))
                     with col2:
-                        st.metric("Temps total", f"{simulation_result.get('total_time', 0)/3600:.2f} h")
+                        st.metric("Temps total", format_duration(simulation_result.get('total_time', 0)))
                     with col3:
                         st.metric("Status", simulation_result.get('status', 'unknown'))
                 
@@ -190,10 +191,10 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
             
             if routes:
                 # Create folium map centered on Paris
-                m = folium.Map(location=[48.8566, 2.3522], zoom_start=12)
+                m = folium.Map(location=PARIS_CENTER, zoom_start=12)
                 
                 # Define colors for different trucks
-                colors = ['red', 'blue', 'green', 'purple', 'orange', 'darkred', 'lightred', 'beige', 'darkblue', 'darkgreen']
+                colors = COLORS
                 
                 # Group routes by truck
                 trucks = {}
@@ -232,7 +233,7 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                             ])
                             
                             # Call OSRM API for real route geometry
-                            osrm_url = f"http://router.project-osrm.org/route/v1/driving/{coordinates}?overview=full&geometries=geojson"
+                            osrm_url = f"{OSRM_API_URL}/{coordinates}?overview=full&geometries=geojson"
                             osrm_response = requests.get(osrm_url)
                             
                             if osrm_response.status_code == 200:
@@ -305,9 +306,9 @@ if hasattr(st.session_state, 'current_simulation') and st.session_state.current_
                         with col1:
                             st.metric("Poids total", f"{total_weight:.1f} kg")
                         with col2:
-                            st.metric("Distance", f"{total_distance/1000:.2f} km")
+                            st.metric("Distance", format_distance(total_distance))
                         with col3:
-                            st.metric("Temps estimé", f"{total_time/3600:.2f} h")
+                            st.metric("Temps estimé", format_duration(total_time))
                         
                         # Route table
                         route_data = []
