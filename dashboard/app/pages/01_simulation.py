@@ -94,7 +94,22 @@ with col3:
     if bins_to_collect == 0:
         st.caption("0 = toutes les poubelles")
 
-simulation_name = st.text_input("📝 Nom de la simulation", value=f"Simulation_{random.randint(1000, 9999)}")
+# Initialize simulation name in session state if not exists
+if 'simulation_name' not in st.session_state:
+    st.session_state.simulation_name = f"Simulation_{random.randint(1000, 9999)}"
+
+col1_name, col2_name = st.columns([3, 1])
+with col1_name:
+    simulation_name = st.text_input("📝 Nom de la simulation", value=st.session_state.simulation_name)
+with col2_name:
+    st.write("")  # Empty space for alignment
+    if st.button("🔄 Nouveau nom"):
+        st.session_state.simulation_name = f"Simulation_{random.randint(1000, 9999)}"
+        st.rerun()
+
+# Update session state if user manually changed the name
+if simulation_name != st.session_state.simulation_name:
+    st.session_state.simulation_name = simulation_name
 
 # Section 3: Lancement de la simulation
 st.header("🚀 Simulation")
